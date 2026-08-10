@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "start-and-shift-app",
+    "name": "START AND SHIFT",
     "slug": "start-and-shift-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B0D",
     "ios": {
       "supportsTablet": true
     },
@@ -20,6 +21,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "START AND SHIFT utilise le micro pour que vous puissiez répondre à voix haute, sans écrire.",
+          "speechRecognitionPermission": "START AND SHIFT transforme votre voix en texte pour remplir vos réponses à votre place.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
+    ]
   }
 }
