@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getWsTicket } from '../api/auth';
 import { ConvStatus, Message, toMessage } from '../api/conversations';
 import { useAuthStore } from '../store/authStore';
 
@@ -30,12 +31,16 @@ interface UseWebSocketResult {
 }
 
 /**
- * Connexion temps réel à `ws://<hôte>/ws?token=<jwt>`.
+ * Connexion temps réel à `ws://<hôte>/ws?ticket=<uuid>`.
  *
- * L'authentification a lieu pendant la poignée de main : un token invalide
- * reçoit un 401 HTTP et le socket ne s'ouvre jamais. On n'a rien de spécial à
- * faire pour ce cas — la première requête REST de l'écran déclenchera la
- * déconnexion, et le composant sera démonté.
+ * L'ouverture se fait en deux temps : `GET /api/ws-ticket`, authentifié par
+ * en-tête, rend un ticket à usage unique valable 30 s, et c'est lui qui part
+ * dans l'URL du socket. Le JWT n'y apparaît jamais.
+ *
+ * L'authentification a lieu pendant la poignée de main : un ticket invalide,
+ * périmé ou déjà servi reçoit un 401 HTTP et le socket ne s'ouvre jamais. On n'a
+ * rien de spécial à faire pour ce cas — la première requête REST de l'écran
+ * déclenchera la déconnexion, et le composant sera démonté.
  *
  * Le serveur envoie un ping protocolaire (auquel la plateforme répond seule) et
  * un `{"type":"ping"}` applicatif toutes les 30 s. Ce dernier n'attend aucune
@@ -71,10 +76,34 @@ export function useWebSocket({
 
     closedByUsRef.current = false;
 
-    const connect = () => {
+    // Déclarations de fonction, et non des const : les deux se référencent
+    // mutuellement, l'hoisting évite d'avoir à les ordonner.
+    function scheduleReconnect() {
+      if (closedByUsRef.current) return;
+      setStatus('closed');
+      const delay = backoffDelay(attemptRef.current);
+      attemptRef.current += 1;
+      timerRef.current = setTimeout(() => void connect(), delay);
+    }
+
+    async function connect() {
       setStatus('connecting');
 
-      const url = `${process.env.EXPO_PUBLIC_WS_URL}?token=${encodeURIComponent(token)}`;
+      // Le ticket remplace le JWT dans l'URL. Il vaut 30 s et ne sert qu'une
+      // fois : chaque tentative en redemande un.
+      let ticket: string;
+      try {
+        ticket = await getWsTicket();
+      } catch {
+        // 401 compris : l'intercepteur d'axios a déjà prévenu le store d'auth.
+        scheduleReconnect();
+        return;
+      }
+
+      // L'écran a pu être quitté, ou le token changer, pendant l'aller-retour.
+      if (closedByUsRef.current) return;
+
+      const url = `${process.env.EXPO_PUBLIC_WS_URL}?ticket=${encodeURIComponent(ticket)}`;
       const ws = new WebSocket(url);
       socketRef.current = ws;
 
@@ -107,21 +136,13 @@ export function useWebSocket({
         }
       };
 
-      const scheduleReconnect = () => {
-        if (closedByUsRef.current) return;
-        setStatus('closed');
-        const delay = backoffDelay(attemptRef.current);
-        attemptRef.current += 1;
-        timerRef.current = setTimeout(connect, delay);
-      };
-
       ws.onclose = scheduleReconnect;
       // `onerror` est suivi d'un `onclose` sur toutes les plateformes ; on ne
       // planifie donc rien ici pour ne pas doubler les tentatives.
       ws.onerror = () => {};
-    };
+    }
 
-    connect();
+    void connect();
 
     return () => {
       closedByUsRef.current = true;

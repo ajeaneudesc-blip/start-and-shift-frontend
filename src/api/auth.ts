@@ -1,4 +1,4 @@
-import client from './client';
+import client, { PROBE_TIMEOUT_MS } from './client';
 
 export type UserRole = 'CLIENT' | 'DESIGNER' | 'MANAGER' | 'SUPPORT' | 'VIEWER' | 'ADMIN';
 export type UserPlan = 'GRATUIT' | 'PRO';
@@ -55,6 +55,27 @@ export async function getMe(): Promise<User> {
  */
 export async function deleteSession(): Promise<void> {
   await client.delete('/api/auth/session');
+}
+
+/**
+ * `GET /api/ws-ticket` — ticket à usage unique, valable 30 s, à passer en query
+ * string du WebSocket.
+ *
+ * Le JWT ne transite jamais dans l'URL d'un socket : elle atterrit dans les
+ * journaux du serveur, ceux des proxys traversés et l'historique du navigateur,
+ * où un jeton de sept jours resterait exploitable. Le ticket, lui, est détruit
+ * dès qu'il sert.
+ *
+ * Sans réessai et en délai court : le hook `useWebSocket` a déjà sa propre
+ * temporisation, et empiler les deux retarderait la connexion de plusieurs
+ * dizaines de secondes.
+ */
+export async function getWsTicket(): Promise<string> {
+  const { data } = await client.get<{ ticket: string; expiresIn: number }>('/api/ws-ticket', {
+    timeout: PROBE_TIMEOUT_MS,
+    noRetry: true,
+  });
+  return data.ticket;
 }
 
 export const PHONE_PREFIX = '+228';
