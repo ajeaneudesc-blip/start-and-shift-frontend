@@ -23,7 +23,7 @@ export interface SessionResponse {
   user: User;
 }
 
-export interface CreateSessionInput {
+export interface RequestOtpInput {
   /** Format E.164 attendu par le backend : `+228` suivi de 8 chiffres. */
   phone: string;
   /** Obligatoires seulement à la première connexion de ce numéro. */
@@ -31,14 +31,27 @@ export interface CreateSessionInput {
   pseudo?: string;
 }
 
+export interface RequestOtpResponse {
+  sessionToken: string;
+  expiresIn: number;
+}
+
 /**
- * `POST /api/auth/session` — inscription ET connexion en une seule route.
- * Si le numéro existe déjà, le compte est retrouvé et `firstName`/`pseudo`
- * sont ignorés ; sinon le compte est créé et les deux deviennent obligatoires.
- * Réponse 201 `{ token, user }`.
+ * `POST /api/auth/session/request` — envoie un code par SMS. Si le numéro est
+ * inconnu, `firstName`/`pseudo` deviennent obligatoires ; le compte n'est créé
+ * qu'à `verifyOtp`, jamais ici.
  */
-export async function createSession(input: CreateSessionInput): Promise<SessionResponse> {
-  const { data } = await client.post<SessionResponse>('/api/auth/session', input);
+export async function requestOtp(input: RequestOtpInput): Promise<RequestOtpResponse> {
+  const { data } = await client.post<RequestOtpResponse>('/api/auth/session/request', input);
+  return data;
+}
+
+/**
+ * `POST /api/auth/session/verify` — crée le compte si besoin et ouvre la
+ * session. Réponse 201 `{ token, user }`.
+ */
+export async function verifyOtp(sessionToken: string, otp: string): Promise<SessionResponse> {
+  const { data } = await client.post<SessionResponse>('/api/auth/session/verify', { sessionToken, otp });
   return data;
 }
 

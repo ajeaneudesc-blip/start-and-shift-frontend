@@ -75,6 +75,24 @@ const ATTENDU = {
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Franchit les deux temps de POST /api/auth/session/{request,verify}. Le
+ * fournisseur SMS "local" ne délivre rien : /session/dev-otp (actif seulement
+ * en dev, avec SMS_PROVIDER=local) est le seul moyen de récupérer le code sans
+ * lire les logs serveur — voir backend/src/routes/auth.ts.
+ */
+async function connexion(phone, extra = {}) {
+  const demande = await appel('POST', '/api/auth/session/request', { body: { phone, ...extra } });
+  if (demande.status !== 200) return demande;
+
+  const devOtp = await appel('GET', `/api/auth/session/dev-otp?phone=${encodeURIComponent(phone)}`);
+  if (!devOtp.body?.code) throw new Error(`pas de code dev-otp pour ${phone} — SMS_PROVIDER local et NODE_ENV=development ?`);
+
+  return appel('POST', '/api/auth/session/verify', {
+    body: { sessionToken: demande.body.sessionToken, otp: devOtp.body.code },
+  });
+}
+
 async function main() {
   const suffixe = String(Date.now()).slice(-7);
   const phone = `+2289${suffixe}`;
@@ -82,9 +100,7 @@ async function main() {
   console.log(`\nParcours complet — compte jetable ${phone}\n`);
 
   // ── 1. Inscription ─────────────────────────────────────────────────────────
-  const inscription = await appel('POST', '/api/auth/session', {
-    body: { phone, firstName: 'Test', pseudo: `test.${suffixe}` },
-  });
+  const inscription = await connexion(phone, { firstName: 'Test', pseudo: `test.${suffixe}` });
   verifier('inscription', inscription.status === 201, `statut ${inscription.status}`);
   const token = inscription.body?.token;
   if (!token) throw new Error('pas de token : impossible de continuer');
@@ -163,7 +179,11 @@ async function main() {
   );
 
   // ── 5. Messages, dont le temps réel ────────────────────────────────────────
-  const ws = new WebSocket(`${WS}?token=${encodeURIComponent(token)}`);
+  // Le JWT ne va jamais dans l'URL du socket : GET /api/ws-ticket échange le
+  // token contre un ticket à usage unique, valable 30 s — voir
+  // backend/src/routes/wsTicket.ts.
+  const ticketReq = await appel('GET', '/api/ws-ticket', { token });
+  const ws = new WebSocket(`${WS}?ticket=${encodeURIComponent(ticketReq.body?.ticket ?? '')}`);
   const ouvert = await new Promise((resolve) => {
     ws.addEventListener('open', () => resolve(true));
     ws.addEventListener('error', () => resolve(false));
@@ -190,7 +210,7 @@ async function main() {
   );
 
   // Réponse de l'équipe : le client doit la recevoir sans recharger.
-  const staff = await appel('POST', '/api/auth/session', { body: { phone: STAFF_PHONE } });
+  const staff = await connexion(STAFF_PHONE);
   const staffToken = staff.body?.token;
 
   const recu = new Promise((resolve) => {

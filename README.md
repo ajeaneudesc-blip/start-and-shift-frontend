@@ -83,14 +83,14 @@ contredisent, **le backend fait foi** — c'est lui qui tourne.
 
 | `FRONTEND_SPEC.md` | Réalité du backend |
 |---|---|
-| `POST /api/auth/signup` | `POST /api/auth/session` — inscription et connexion confondues |
+| `POST /api/auth/signup` | `POST /api/auth/session/request` puis `/session/verify` — inscription et connexion confondues, code SMS en deux temps |
 | `GET /api/auth/me` | `GET /api/me` |
 | `phone: "90000000"` | `phone: "+22890000000"` — E.164 complet, validé par `/^\+228\d{8}$/` |
 | `POST /api/diagnostic/answer` `{ step, answer }` | `PUT /api/diagnostic` `{ answers: [...] }` — tableau partiel |
 | `GET /api/strategy` sondé toutes les 2 s | `POST /api/strategy` — calcul synchrone, réponse immédiate |
 | `positioning`, `audiences`, `tone`, `differentiator` | `pos`, `cibles`, `ton`, `diff` |
 | Port 4000 | Port 3000 |
-| `ws://API_URL?token=` | `ws://API_URL/ws?token=` |
+| `ws://API_URL?token=` | `ws://API_URL/ws?ticket=` — jeton à usage unique obtenu via `GET /api/ws-ticket`, jamais le JWT |
 
 ### Les 8 questions du diagnostic
 

@@ -12,30 +12,36 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { apiErrorMessage } from '../../api/client';
 import {
-  createSession,
   digitsOnly,
   formatLocalPhone,
   isValidLocalPhone,
   PHONE_LOCAL_LENGTH,
   PHONE_PREFIX,
+  requestOtp,
   toE164,
+  verifyOtp,
 } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 import { Colors, Radius, Spacing } from '../../theme/tokens';
 import type { AuthScreenProps } from '../../navigation/types';
 
+const OTP_LENGTH = 6;
+
 export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  const [step, setStep] = useState<'form' | 'otp'>('form');
   const [firstName, setFirstName] = useState('');
   const [pseudo, setPseudo] = useState('');
   const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [sessionToken, setSessionToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<'firstName' | 'pseudo' | 'phone' | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function submit() {
+  async function submitPhone() {
     setError(null);
     setFieldError(null);
 
@@ -57,11 +63,31 @@ export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
 
     setLoading(true);
     try {
-      const { token, user } = await createSession({
+      const { sessionToken: token } = await requestOtp({
         phone: toE164(phone),
         firstName: firstName.trim(),
         pseudo: pseudo.trim(),
       });
+      setSessionToken(token);
+      setCode('');
+      setStep('otp');
+    } catch (e) {
+      setError(apiErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitCode() {
+    setError(null);
+    if (code.length !== OTP_LENGTH) {
+      setError(`Le code a ${OTP_LENGTH} chiffres.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { token, user } = await verifyOtp(sessionToken, code);
       await setAuth(token, user);
       navigation.navigate('Consent');
     } catch (e) {
@@ -85,72 +111,115 @@ export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
       >
         <View style={styles.card}>
           <Text style={styles.brand}>START AND SHIFT</Text>
-          <Text style={styles.title}>Inscription</Text>
-          <Text style={styles.subtitle}>
-            Pas de mot de passe, pas de code par SMS. Votre numéro suffit.
-          </Text>
 
-          <View style={styles.fields}>
-            <Input
-              label="Prénom"
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="Amina"
-              autoCapitalize="words"
-              error={fieldError === 'firstName' ? ' ' : null}
-            />
-            <Input
-              label="Pseudo"
-              prefix="@"
-              value={pseudo}
-              onChangeText={(v) => setPseudo(v.replace(/^@+/, ''))}
-              placeholder="amina.k"
-              autoCapitalize="none"
-              error={fieldError === 'pseudo' ? ' ' : null}
-            />
-            <Input
-              label="Numéro"
-              prefix={PHONE_PREFIX}
-              value={formatLocalPhone(phone)}
-              onChangeText={(v) => setPhone(digitsOnly(v).slice(0, PHONE_LOCAL_LENGTH))}
-              placeholder="90 00 00 00"
-              keyboardType="number-pad"
-              error={fieldError === 'phone' ? ' ' : null}
-            />
-          </View>
+          {step === 'form' ? (
+            <>
+              <Text style={styles.title}>Inscription</Text>
+              <Text style={styles.subtitle}>
+                Pas de mot de passe. Un code par SMS confirme votre numéro.
+              </Text>
 
-          {error ? (
-            <Text style={styles.error} accessibilityLiveRegion="assertive">
-              {error}
-            </Text>
-          ) : null}
+              <View style={styles.fields}>
+                <Input
+                  label="Prénom"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Amina"
+                  autoCapitalize="words"
+                  error={fieldError === 'firstName' ? ' ' : null}
+                />
+                <Input
+                  label="Pseudo"
+                  prefix="@"
+                  value={pseudo}
+                  onChangeText={(v) => setPseudo(v.replace(/^@+/, ''))}
+                  placeholder="amina.k"
+                  autoCapitalize="none"
+                  error={fieldError === 'pseudo' ? ' ' : null}
+                />
+                <Input
+                  label="Numéro"
+                  prefix={PHONE_PREFIX}
+                  value={formatLocalPhone(phone)}
+                  onChangeText={(v) => setPhone(digitsOnly(v).slice(0, PHONE_LOCAL_LENGTH))}
+                  placeholder="90 00 00 00"
+                  keyboardType="number-pad"
+                  error={fieldError === 'phone' ? ' ' : null}
+                />
+              </View>
 
-          <Button
-            label="Créer mon compte"
-            onPress={submit}
-            loading={loading}
-            style={styles.cta}
-          />
+              {error ? (
+                <Text style={styles.error} accessibilityLiveRegion="assertive">
+                  {error}
+                </Text>
+              ) : null}
 
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerLabel}>OU</Text>
-            <View style={styles.divider} />
-          </View>
+              <Button
+                label="Recevoir mon code"
+                onPress={submitPhone}
+                loading={loading}
+                style={styles.cta}
+              />
 
-          {/*
-            Gmail est présent dans la maquette mais aucune route OAuth n'existe
-            côté backend (l'authentification se fait par numéro seul). Le bouton
-            est donc désactivé plutôt que trompeur.
-          */}
-          <Button
-            label="Continuer avec Gmail"
-            variant="secondary"
-            onPress={() => {}}
-            disabled
-            accessibilityLabel="Continuer avec Gmail — pas encore disponible"
-          />
-          <Text style={styles.soon}>Bientôt disponible</Text>
+              <View style={styles.dividerRow}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerLabel}>OU</Text>
+                <View style={styles.divider} />
+              </View>
+
+              {/*
+                Gmail est présent dans la maquette mais aucune route OAuth n'existe
+                côté backend (l'authentification se fait par numéro seul). Le bouton
+                est donc désactivé plutôt que trompeur.
+              */}
+              <Button
+                label="Continuer avec Gmail"
+                variant="secondary"
+                onPress={() => {}}
+                disabled
+                accessibilityLabel="Continuer avec Gmail — pas encore disponible"
+              />
+              <Text style={styles.soon}>Bientôt disponible</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Votre code</Text>
+              <Text style={styles.subtitle}>
+                Envoyé par SMS au {PHONE_PREFIX} {formatLocalPhone(phone)}.
+              </Text>
+
+              <View style={styles.fields}>
+                <Input
+                  label="Code reçu"
+                  value={code}
+                  onChangeText={(v) => setCode(digitsOnly(v).slice(0, OTP_LENGTH))}
+                  placeholder="000000"
+                  keyboardType="number-pad"
+                  maxLength={OTP_LENGTH}
+                  autoFocus
+                />
+              </View>
+
+              {error ? (
+                <Text style={styles.error} accessibilityLiveRegion="assertive">
+                  {error}
+                </Text>
+              ) : null}
+
+              <Button
+                label="Confirmer"
+                onPress={submitCode}
+                loading={loading}
+                style={styles.cta}
+              />
+              <Button
+                label="Modifier le numéro"
+                variant="secondary"
+                onPress={() => setStep('form')}
+                disabled={loading}
+              />
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
