@@ -8,9 +8,11 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B0D",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "tg.startshift.app"
     },
     "android": {
+      "package": "tg.startshift.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,6 +34,12 @@
           "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ]
-    ]
+    ],
+    "owner": "ajeaneudesc",
+    "extra": {
+      "eas": {
+        "projectId": "8b515b6d-49d7-4660-84a1-db9b015b6d51"
+      }
+    }
   }
 }
