@@ -123,6 +123,7 @@ const MESSAGES: Record<string, string> = {
   pseudo_taken: 'Ce pseudo est déjà pris. Essayez-en un autre.',
   account_suspended: 'Ce compte est suspendu. Contactez-nous.',
   too_many_requests: "Trop d'essais. Attendez quelques minutes avant de réessayer.",
+  sms_delivery_failed: "Le SMS n'a pas pu partir. Vérifiez votre numéro, puis redemandez un code.",
   invalid_code: 'Ce code ne correspond pas. Vérifiez le SMS et réessayez.',
   invalid_session: 'Ce code a expiré. Demandez-en un nouveau.',
   expired: 'Ce code a expiré. Demandez-en un nouveau.',
