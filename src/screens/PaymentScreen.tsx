@@ -3,11 +3,22 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
+import { Input } from '../components/ui/Input';
 import { SelectableRow } from '../components/ui/SelectableRow';
 import { OrderProgress } from '../components/tracking/OrderProgress';
 import { listOrders, Order } from '../api/orders';
 import { openConversation } from '../api/conversations';
-import { apiErrorMessage } from '../api/client';
+import { apiErrorCode, apiErrorMessage } from '../api/client';
+import {
+  digitsOnly,
+  formatLocalPhone,
+  isValidLocalPhone,
+  PHONE_LOCAL_LENGTH,
+  PHONE_PREFIX,
+  toE164,
+} from '../api/auth';
+import { getPaymentStatus, initiatePayment, PaygateNetwork, PaymentRequestRow } from '../api/payments';
+import { useAuthStore } from '../store/authStore';
 import {
   formatFCFA,
   MOYENS_PAIEMENT,
@@ -16,13 +27,45 @@ import {
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
 
+/** Index dans `MOYENS_PAIEMENT` : les deux premiers sont les réseaux PayGate. */
+const NETWORK_BY_MOYEN: Record<number, PaygateNetwork> = { 0: 'TMONEY', 1: 'FLOOZ' };
+
+/** 3 s : assez réactif pour une confirmation qui arrive en quelques secondes, sans matraquer le serveur. */
+const POLL_INTERVAL_MS = 3000;
+
+const FAILURE_TEXT: Record<'ECHEC' | 'EXPIRE' | 'ANNULE', string> = {
+  ECHEC: 'Le paiement a échoué. Vérifiez votre solde et réessayez.',
+  EXPIRE: 'La demande a expiré sans confirmation. Réessayez.',
+  ANNULE: 'Le paiement a été annulé. Réessayez si besoin.',
+};
+
+function paymentErrorMessage(e: unknown): string {
+  const code = apiErrorCode(e);
+  if (code?.startsWith('payment_provider_unavailable')) {
+    return 'Le paiement en ligne est momentanément indisponible. Choisissez un autre moyen ci-dessous.';
+  }
+  if (code === 'paygate_rejected') {
+    return "Le paiement n'a pas pu être lancé. Réessayez dans un instant.";
+  }
+  return apiErrorMessage(e);
+}
+
 export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
   const insets = useSafeAreaInsets();
+  const user = useAuthStore((s) => s.user);
 
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [moyen, setMoyen] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Numéro pré-rempli avec celui du compte : c'est le cas le plus courant,
+  // mais le client peut payer depuis un autre numéro Mobile Money.
+  const [phone, setPhone] = useState(() => (user?.phone ?? '').replace(PHONE_PREFIX, ''));
+  const [phoneError, setPhoneError] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+  const [request, setRequest] = useState<PaymentRequestRow | null>(null);
 
   const alive = useRef(true);
   useEffect(() => {
@@ -31,6 +74,66 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
       alive.current = false;
     };
   }, []);
+
+  // Sonde le statut tant que la demande est EN_ATTENTE ; s'arrête d'elle-même
+  // sur un statut terminal ou si l'écran est démonté.
+  // Dépendances réduites à l'identifiant et au statut : `request` change
+  // d'identité à chaque sondage, l'y mettre relancerait l'intervalle tous les
+  // 3 s et ferait dépendre la cadence de la latence réseau.
+  const pending = request?.status === 'EN_ATTENTE' ? request.identifier : null;
+  useEffect(() => {
+    if (!pending) return;
+
+    const timer = setInterval(async () => {
+      try {
+        const fresh = await getPaymentStatus(pending);
+        if (alive.current) setRequest(fresh);
+      } catch {
+        // Panne transitoire de notre API (pas de PayGate, déjà géré côté
+        // serveur) : on retente au prochain tick sans rien afficher.
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [pending]);
+
+  function choisirMoyen(i: number) {
+    if (paying || request) return; // pas de changement de réseau en cours de demande
+    setMoyen(i);
+    setPayError(null);
+  }
+
+  async function payer() {
+    const network = NETWORK_BY_MOYEN[moyen];
+    if (!network) return;
+
+    if (!isValidLocalPhone(phone)) {
+      setPhoneError(true);
+      setPayError(`Le numéro doit avoir ${PHONE_LOCAL_LENGTH} chiffres.`);
+      return;
+    }
+    setPhoneError(false);
+    setPayError(null);
+    setPaying(true);
+    try {
+      const created = await initiatePayment({
+        network,
+        phoneNumber: toE164(phone),
+        amountFCFA: PACK_IDENTITE.montantFCFA,
+        description: PACK_IDENTITE.nom,
+      });
+      if (alive.current) setRequest(created);
+    } catch (e) {
+      if (alive.current) setPayError(paymentErrorMessage(e));
+    } finally {
+      if (alive.current) setPaying(false);
+    }
+  }
+
+  function recommencer() {
+    setRequest(null);
+    setPayError(null);
+  }
 
   const charger = useCallback(async () => {
     try {
@@ -70,6 +173,7 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
   }
 
   const commande = orders[0] ?? null;
+  const network = NETWORK_BY_MOYEN[moyen];
 
   return (
     <ScrollView
@@ -130,38 +234,101 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
                 label={m.nom}
                 hint={m.detail}
                 selected={moyen === i}
-                onPress={() => setMoyen(i)}
+                onPress={() => choisirMoyen(i)}
+                disabled={paying || (request !== null && i !== moyen)}
               />
             ))}
           </View>
 
-          <View style={styles.notice}>
-            <Icon name="lock" size={17} color={Colors.textMuted} style={styles.noticeIcon} />
-            <Text style={styles.noticeText}>
-              {MOYENS_PAIEMENT[moyen].nom === 'Espèces au bureau'
-                ? `Passez au bureau (${MOYENS_PAIEMENT[moyen].detail}) avec le montant. Votre assistant enregistre le paiement devant vous.`
-                : `Votre assistant vous donne le numéro ${MOYENS_PAIEMENT[moyen].nom} dans la discussion. Vous faites le transfert avec votre code habituel, puis vous le prévenez : il confirme la réception.`}
+          {network && request?.status === 'EN_ATTENTE' ? (
+            <View style={styles.notice}>
+              <ActivityIndicator color={Colors.blueMid} style={styles.noticeIcon} />
+              <Text style={styles.noticeText}>
+                Confirmez avec votre code {MOYENS_PAIEMENT[moyen].nom} habituel, sur votre téléphone.
+                Cette page se met à jour dès que c'est fait.
+              </Text>
+            </View>
+          ) : network && request?.status === 'REUSSI' ? (
+            <View style={styles.notice}>
+              <Icon name="check" size={17} color={Colors.blueMid} style={styles.noticeIcon} />
+              <Text style={styles.noticeText}>
+                Paiement reçu. Votre assistant valide votre commande sous peu.
+              </Text>
+            </View>
+          ) : network && request && request.status !== 'EN_ATTENTE' && request.status !== 'REUSSI' ? (
+            <View style={styles.notice}>
+              <Icon name="close" size={17} color={Colors.orange} style={styles.noticeIcon} />
+              <Text style={styles.noticeText}>{FAILURE_TEXT[request.status]}</Text>
+            </View>
+          ) : network ? (
+            <>
+              <View style={styles.notice}>
+                <Icon name="lock" size={17} color={Colors.textMuted} style={styles.noticeIcon} />
+                <Text style={styles.noticeText}>
+                  Nous envoyons une demande sur ce numéro : confirmez avec votre code{' '}
+                  {MOYENS_PAIEMENT[moyen].nom} habituel, directement sur votre téléphone.
+                </Text>
+              </View>
+              <Input
+                label="Numéro à débiter"
+                prefix={PHONE_PREFIX}
+                value={formatLocalPhone(phone)}
+                onChangeText={(v) => {
+                  setPhone(digitsOnly(v).slice(0, PHONE_LOCAL_LENGTH));
+                  setPhoneError(false);
+                }}
+                placeholder="90 00 00 00"
+                keyboardType="number-pad"
+                error={phoneError ? ' ' : null}
+                style={styles.phoneInput}
+              />
+            </>
+          ) : (
+            <View style={styles.notice}>
+              <Icon name="lock" size={17} color={Colors.textMuted} style={styles.noticeIcon} />
+              <Text style={styles.noticeText}>
+                Passez au bureau ({MOYENS_PAIEMENT[moyen].detail}) avec le montant. Votre assistant
+                enregistre le paiement devant vous.
+              </Text>
+            </View>
+          )}
+
+          {!network && (
+            <Text style={styles.warning}>
+              Le paiement ne se fait pas encore dans l'app. Ne saisissez jamais votre code
+              secret ici — personne de START AND SHIFT ne vous le demandera.
             </Text>
-          </View>
+          )}
 
-          <Text style={styles.warning}>
-            Le paiement ne se fait pas encore dans l'app. Ne saisissez jamais votre code
-            secret ici — personne de START AND SHIFT ne vous le demandera.
-          </Text>
-
+          {payError ? <Text style={styles.error}>{payError}</Text> : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={styles.actions}>
+            {network && !request ? (
+              <Button
+                label={`Payer via ${MOYENS_PAIEMENT[moyen].nom}`}
+                onPress={payer}
+                loading={paying}
+              />
+            ) : network && request?.status === 'EN_ATTENTE' ? (
+              <Button label="Recommencer" variant="secondary" onPress={recommencer} />
+            ) : network && request && request.status !== 'REUSSI' ? (
+              <Button label="Réessayer" onPress={recommencer} />
+            ) : null}
+
             <Button
               label="Ouvrir la discussion"
+              variant={network && !request ? 'secondary' : 'primary'}
               onPress={ouvrirDiscussion}
               loading={busy}
             />
-            <Button
-              label="Comparer Gratuit et Pro"
-              variant="secondary"
-              onPress={() => navigation.navigate('Offers')}
-            />
+            {(!request || request.status !== 'EN_ATTENTE') && (
+              <Button
+                label="Comparer Gratuit et Pro"
+                variant="secondary"
+                onPress={() => navigation.navigate('Offers')}
+              />
+            )}
           </View>
         </>
       )}
@@ -222,6 +389,7 @@ const styles = StyleSheet.create({
   },
   noticeIcon: { marginTop: 2 },
   noticeText: { flex: 1, fontSize: 14, lineHeight: 21, color: Colors.textMuted },
+  phoneInput: { marginBottom: Spacing.md },
 
   warning: {
     fontSize: 13,

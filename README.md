@@ -209,31 +209,38 @@ ouvre donc la discussion avec un message **pré-rempli mais non envoyé** :
 C'est une interprétation du « + » décoratif du prototype — sans elle, l'écran
 ne serait qu'une vitrine sans action.
 
-### Paiement : aucun paiement ne part de l'app, et l'écran le dit
+### Paiement : T-Money/Flooz sont réels, la commande reste créée à la main
 
 `FRONTEND_SPEC` §6.7 fait appeler `POST /api/orders`. **Cette route n'existe
-pas.** Le module `orders` du backend n'expose qu'un `GET /` (lecture) et un
-`PATCH /:ref` réservé au backoffice pour faire avancer l'état. Aucune création
-n'est possible, même côté équipe — et `Order.state` vaut `PAYE` par défaut :
-une commande n'existe qu'une fois l'argent reçu.
+toujours pas côté client.** Le module `orders` du backend n'expose qu'un
+`GET /` (lecture) et un `PATCH /:ref` réservés au backoffice ; `POST /` crée
+bien une commande mais reste réservé au niveau 2 (staff). `Order.state` vaut
+`PAYE` par défaut : une commande n'existe qu'une fois le paiement confirmé,
+et cette confirmation reste un geste humain, pas automatique.
 
-Ce n'est pas un oubli du backend, c'est le fonctionnement retenu : l'intégration
-Mobile Money attend l'enregistrement de la société togolaise, et le
-contournement décidé est le **paiement manuel** — le client transfère, l'équipe
-confirme. Les trois moyens du prototype le confirment : T-Money, Flooz et
-**espèces au bureau** sont tous des canaux manuels. (Le §6.7 annonce une carte
-bancaire ; le prototype, plus juste, propose les espèces.)
+C'est un choix assumé, pas une limite technique : PayGate Global (agrégateur
+T-Money/Flooz togolais) est bien intégré côté backend (`POST /api/payments`),
+mais son webhook ne pouvant pas être authentifié de façon fiable, on ne le
+laisse jamais créer de commande tout seul. Un paiement `REUSSI` reste donc une
+`PaymentRequest` indépendante ; c'est toujours l'équipe qui ouvre la commande
+dans le backoffice une fois le paiement vu.
 
-**Le flux simulé du prototype n'a pas été repris.** Il affiche une barre de
-progression, « Connexion à T-Money… », puis « reçu n° 4821-KL ». Rien de tout
-cela n'existe : aucune connexion, aucun reçu, aucun débit. Annoncer un paiement
-réussi à quelqu'un qui n'a rien payé est la pire chose que cette app puisse
-dire — le public visé compte ses 18 000 F, et croirait sa commande lancée.
+Concrètement, sur cet écran :
 
-L'écran montre donc ce qui est vrai : le montant, le moyen choisi, la marche à
-suivre réelle, et un avertissement explicite (« ne saisissez jamais votre code
-secret ici »). Dès qu'une commande existe côté serveur, le même écran affiche
-son avancement à la place.
+- **T-Money et Flooz** déclenchent un vrai prompt de paiement PayGate sur le
+  numéro saisi (`POST /api/payments`), puis l'écran sonde `GET
+  /api/payments/:identifier` toutes les 3 s jusqu'à un statut définitif
+  (`REUSSI`, `ECHEC`, `EXPIRE` ou `ANNULE`). Le montant part réellement du
+  compte Mobile Money du client.
+- **Espèces au bureau** reste un canal entièrement manuel, comme avant.
+
+**Le flux simulé du prototype n'a jamais été repris.** Il affichait une barre
+de progression, « Connexion à T-Money… », puis « reçu n° 4821-KL » sans rien
+débiter. Ici, à l'inverse, le statut affiché est celui que PayGate renvoie
+réellement — jamais un état inventé côté app.
+
+Dès qu'une commande existe côté serveur (ouverte par le staff), le même écran
+affiche son avancement à la place de ce formulaire.
 
 Les prix sont **figés dans `constants/offers.ts`** : le backend n'expose ni
 catalogue ni grille tarifaire. Changer un prix demande donc une nouvelle version

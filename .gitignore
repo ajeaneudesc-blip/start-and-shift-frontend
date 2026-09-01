@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Reglages Claude Code propres a une machine
+.claude/settings.local.json
+
+# Sorties de build Electron
+release/
+.claude/.claude/
