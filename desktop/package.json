@@ -1,0 +1,36 @@
+{
+  "name": "start-and-shift-desktop",
+  "productName": "START AND SHIFT",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Coque Electron de l'application cliente START AND SHIFT",
+  "author": "Start And Shift",
+  "main": "main.cjs",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "start": "electron .",
+    "pack": "npm run sync && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "tg.startshift.app.desktop",
+    "productName": "START AND SHIFT",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "www/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  }
+}

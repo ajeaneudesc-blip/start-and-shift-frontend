@@ -46,3 +46,9 @@ yarn-error.*
 # Sorties de build Electron
 release/
 .claude/.claude/
+
+# Coque Electron : dependances, bundle copie et sorties de build
+desktop/node_modules/
+desktop/www/
+desktop/release/
+web-dist/

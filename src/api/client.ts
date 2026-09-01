@@ -100,6 +100,18 @@ export function apiErrorCode(e: unknown): string | null {
 }
 
 /**
+ * Champ supplémentaire d'un corps d'erreur JSON de l'API. Sert au cas du
+ * paiement : un 503 renvoie l'`identifier` de la demande créée, qui reste
+ * valable côté serveur même si l'appel au fournisseur a échoué.
+ */
+export function apiErrorField(e: unknown, field: string): string | null {
+  if (!axios.isAxiosError(e)) return null;
+  const data = e.response?.data as Record<string, unknown> | undefined;
+  const value = data?.[field];
+  return typeof value === 'string' ? value : null;
+}
+
+/**
  * Messages destinés à des personnes qui lisent peu : phrases courtes, aucun
  * terme technique, et toujours une action à faire.
  */

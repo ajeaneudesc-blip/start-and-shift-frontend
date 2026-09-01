@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
@@ -8,7 +9,7 @@ import { SelectableRow } from '../components/ui/SelectableRow';
 import { OrderProgress } from '../components/tracking/OrderProgress';
 import { listOrders, Order } from '../api/orders';
 import { openConversation } from '../api/conversations';
-import { apiErrorCode, apiErrorMessage } from '../api/client';
+import { apiErrorCode, apiErrorField, apiErrorMessage } from '../api/client';
 import {
   digitsOnly,
   formatLocalPhone,
@@ -32,6 +33,14 @@ const NETWORK_BY_MOYEN: Record<number, PaygateNetwork> = { 0: 'TMONEY', 1: 'FLOO
 
 /** 3 s : assez réactif pour une confirmation qui arrive en quelques secondes, sans matraquer le serveur. */
 const POLL_INTERVAL_MS = 3000;
+
+/**
+ * L'identifiant de la demande en cours survit au démontage de l'écran. Sans
+ * ça, revenir en arrière ou ouvrir la discussion pendant l'attente le perdait
+ * définitivement : le paiement continuait chez PayGate, mais l'app ne pouvait
+ * plus le suivre et proposait d'en relancer un second.
+ */
+const PENDING_KEY = 'payment.pending.identifier';
 
 const FAILURE_TEXT: Record<'ECHEC' | 'EXPIRE' | 'ANNULE', string> = {
   ECHEC: 'Le paiement a échoué. Vérifiez votre solde et réessayez.',
@@ -75,6 +84,23 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
     };
   }, []);
 
+  // Reprend une demande laissée en attente lors d'une visite précédente. Le
+  // sondage ci-dessous redémarre tout seul dès que l'état est réhydraté.
+  useEffect(() => {
+    (async () => {
+      const identifier = await AsyncStorage.getItem(PENDING_KEY);
+      if (!identifier) return;
+      try {
+        const fresh = await getPaymentStatus(identifier);
+        if (alive.current) setRequest(fresh);
+        if (fresh.status !== 'EN_ATTENTE') await AsyncStorage.removeItem(PENDING_KEY);
+      } catch {
+        // Demande introuvable (404) ou API injoignable : on n'efface rien, une
+        // panne réseau ne doit pas faire perdre la trace d'un paiement en cours.
+      }
+    })();
+  }, []);
+
   // Sonde le statut tant que la demande est EN_ATTENTE ; s'arrête d'elle-même
   // sur un statut terminal ou si l'écran est démonté.
   // Dépendances réduites à l'identifiant et au statut : `request` change
@@ -87,6 +113,7 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
     const timer = setInterval(async () => {
       try {
         const fresh = await getPaymentStatus(pending);
+        if (fresh.status !== 'EN_ATTENTE') await AsyncStorage.removeItem(PENDING_KEY);
         if (alive.current) setRequest(fresh);
       } catch {
         // Panne transitoire de notre API (pas de PayGate, déjà géré côté
@@ -122,17 +149,29 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
         amountFCFA: PACK_IDENTITE.montantFCFA,
         description: PACK_IDENTITE.nom,
       });
+      await AsyncStorage.setItem(PENDING_KEY, created.identifier);
       if (alive.current) setRequest(created);
     } catch (e) {
+      // Un 503 arrive avec l'identifiant de la demande : PayGate a peut-être
+      // reçu l'appel malgré la panne de transport, la demande reste EN_ATTENTE
+      // côté serveur. On la mémorise pour pouvoir la retrouver plutôt que d'en
+      // relancer une seconde à l'aveugle.
+      const orphan = apiErrorField(e, 'identifier');
+      if (orphan) await AsyncStorage.setItem(PENDING_KEY, orphan);
       if (alive.current) setPayError(paymentErrorMessage(e));
     } finally {
       if (alive.current) setPaying(false);
     }
   }
 
-  function recommencer() {
+  // Uniquement après une issue terminale : tant que la demande est EN_ATTENTE,
+  // l'oublier côté client n'annule rien côté PayGate. Le prompt reste posé sur
+  // le téléphone, et relancer un paiement en enverrait un second pour la même
+  // commande — deux débits possibles, dont un que l'app ne suivrait plus.
+  async function recommencer() {
     setRequest(null);
     setPayError(null);
+    await AsyncStorage.removeItem(PENDING_KEY);
   }
 
   const charger = useCallback(async () => {
@@ -311,7 +350,12 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
                 loading={paying}
               />
             ) : network && request?.status === 'EN_ATTENTE' ? (
-              <Button label="Recommencer" variant="secondary" onPress={recommencer} />
+              // Aucune action pendant l'attente : le prompt est posé sur le
+              // téléphone du client et rien ici ne peut l'annuler chez PayGate.
+              // Un bouton « Recommencer » ne ferait qu'en envoyer un second,
+              // avec deux débits possibles à la clé. La demande finit toujours
+              // par expirer côté fournisseur si personne ne confirme.
+              null
             ) : network && request && request.status !== 'REUSSI' ? (
               <Button label="Réessayer" onPress={recommencer} />
             ) : null}
