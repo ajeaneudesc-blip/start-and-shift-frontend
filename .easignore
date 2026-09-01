@@ -1,0 +1,7 @@
+# Ce qui ne doit pas partir dans l'archive envoyée à EAS Build. Sans ce
+# fichier, EAS applique .gitignore — qui n'exclut pas la coque Electron ni
+# l'export web, soit plusieurs centaines de Mo inutiles au build Android.
+desktop/
+web-dist/
+android/
+ios/

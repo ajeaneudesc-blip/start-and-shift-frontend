@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.0.0"
+    "version": ">= 5.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -11,10 +12,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.startshift.tg",
+        "EXPO_PUBLIC_WS_URL": "wss://api.startshift.tg/ws",
+        "EXPO_PUBLIC_BACKOFFICE_URL": "https://backoffice.startshift.tg"
       }
     },
     "production": {
-      "distribution": "store"
+      "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.startshift.tg",
+        "EXPO_PUBLIC_WS_URL": "wss://api.startshift.tg/ws",
+        "EXPO_PUBLIC_BACKOFFICE_URL": "https://backoffice.startshift.tg"
+      }
     }
   },
   "submit": {
