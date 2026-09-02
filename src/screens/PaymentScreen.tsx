@@ -371,13 +371,6 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
               onPress={ouvrirDiscussion}
               loading={busy}
             />
-            {(!request || request.status !== 'EN_ATTENTE') && (
-              <Button
-                label="Comparer Gratuit et Pro"
-                variant="secondary"
-                onPress={() => navigation.navigate('Offers')}
-              />
-            )}
           </View>
         </>
       )}

@@ -8,7 +8,11 @@ interface Promise {
   hint: string;
 }
 
-/** Les quatre engagements du prototype (lignes 1378-1381), dans l'ordre. */
+/**
+ * Les engagements du prototype, dans l'ordre. Celui sur la réponse en vocal a
+ * été retiré en même temps que la dictée : le tenir aurait demandé une
+ * reconnaissance vocale qui échouait dès que le réseau flanchait.
+ */
 export const PROMISES: readonly Promise[] = [
   {
     icon: 'clock',
@@ -19,11 +23,6 @@ export const PROMISES: readonly Promise[] = [
     icon: 'refresh',
     label: 'Deux séries de corrections incluses',
     hint: 'Vous demandez les changements dans le chat.',
-  },
-  {
-    icon: 'sound',
-    label: 'Vous pouvez répondre en vocal',
-    hint: "Aucune obligation d'écrire.",
   },
   {
     icon: 'shield',

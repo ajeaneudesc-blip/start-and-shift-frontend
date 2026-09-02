@@ -18,10 +18,8 @@ export type IconName =
   | 'arrow-right'
   | 'clock'
   | 'shield'
-  | 'sound'
   | 'palette'
   | 'refresh'
-  | 'mic'
   | 'send'
   | 'paperclip'
   | 'camera'
@@ -63,13 +61,6 @@ const ICONS: Record<IconName, ReactNode> = {
     </>
   ),
 
-  sound: (
-    <>
-      <Path d="M11 5 6 9H3v6h3l5 4z" />
-      <Path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" />
-      <Path d="M18.5 6.5a7.5 7.5 0 0 1 0 11" />
-    </>
-  ),
 
   palette: (
     <>
@@ -87,13 +78,8 @@ const ICONS: Record<IconName, ReactNode> = {
     </>
   ),
 
-  mic: (
-    <>
-      <Rect x="9" y="3" width="6" height="11" rx="3" />
-      <Path d="M5 11a7 7 0 0 0 14 0" />
-      <Path d="M12 18v3" />
-    </>
-  ),
+
+
 
   send: (
     <>

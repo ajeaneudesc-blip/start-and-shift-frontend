@@ -26,15 +26,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font",
-      [
-        "expo-speech-recognition",
-        {
-          "microphonePermission": "START AND SHIFT utilise le micro pour que vous puissiez répondre à voix haute, sans écrire.",
-          "speechRecognitionPermission": "START AND SHIFT transforme votre voix en texte pour remplir vos réponses à votre place.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
-        }
-      ]
+      "expo-font"
     ],
     "owner": "ajeaneudesc",
     "extra": {

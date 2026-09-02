@@ -15,10 +15,8 @@ import { Icon } from '../components/ui/Icon';
 import { Input } from '../components/ui/Input';
 import { ProgressBar } from '../components/ui/ProgressBar';
 import { Halo } from '../components/effects/Halo';
-import { SpeakButton } from '../components/ui/SpeakButton';
 import { OptionsGrid } from '../components/diagnostic/OptionsGrid';
 import { QuestionCard } from '../components/diagnostic/QuestionCard';
-import { VocalRecorder } from '../components/diagnostic/VocalRecorder';
 import { usePlatform } from '../hooks/usePlatform';
 import { useDiagStore } from '../store/diagStore';
 import { isEmpty } from '../api/diagnostic';
@@ -55,14 +53,6 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
 
   const question = QUESTIONS[step];
   const answer = answers[step];
-
-  // Les options font partie de la question : sans elles, quelqu'un qui écoute
-  // au lieu de lire ne saurait pas entre quoi choisir.
-  const questionSpoken = [
-    question.t,
-    question.h,
-    ...(question.opts ? question.opts.map((o, i) => `Choix ${i + 1} : ${o}.`) : []),
-  ].join(' ');
 
   const answered = !isEmpty(answer);
   const isLast = step === ANSWER_COUNT - 1;
@@ -118,13 +108,6 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
   const prompt = (
     <View style={isWide ? styles.leftPanel : undefined}>
       <QuestionCard title={question.t} hint={question.h} step={step} />
-
-      {/*
-        Écouter la question résout la moitié « lecture » de la difficulté.
-        La moitié « écriture » — répondre à la voix — attend une transcription
-        automatique, qui n'existe dans aucun module Expo (voir README).
-      */}
-      <SpeakButton text={questionSpoken} label="Écouter la question" />
     </View>
   );
 
@@ -140,18 +123,6 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
             autoCapitalize="sentences"
           />
           {step === 4 ? <Text style={styles.help}>{SEPARATOR_HELP}</Text> : null}
-
-          {/*
-            La dictée n'est proposée que sur les réponses libres. Sur les
-            questions à choix, il faudrait rapprocher une phrase dictée d'un
-            libellé exact — or ces libellés pilotent le calcul de la stratégie
-            au caractère près. Écouter la question puis toucher son choix est
-            plus sûr, et tout aussi accessible.
-          */}
-          <VocalRecorder
-            value={typeof answer === 'string' ? answer : ''}
-            onChange={(v) => setAnswer(step, v)}
-          />
         </View>
       ) : (
         <OptionsGrid

@@ -1,20 +1,17 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-/** Écrans visibles tant que le compte n'est pas créé ET le consentement donné. */
+/** Écrans visibles tant que le compte n'est pas créé. */
 export type AuthStackParamList = {
   Signup: undefined;
 };
 
-/** Écrans visibles une fois connecté. Complété aux étapes 7 à 11. */
+/** Écrans visibles une fois connecté. */
 export type AppStackParamList = {
   Diagnostic: undefined;
   Strategy: undefined;
   Relation: undefined;
-  /** `draft` pré-remplit le composeur sans envoyer — utilisé par la bibliothèque. */
-  Chat: { conversationId: number; draft?: string };
+  Chat: { conversationId: number };
   Payment: undefined;
-  Offers: undefined;
-  Library: undefined;
   Tracking: undefined;
 };
 

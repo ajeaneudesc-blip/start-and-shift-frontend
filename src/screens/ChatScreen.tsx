@@ -149,15 +149,6 @@ export function ChatScreen({ navigation, route }: AppScreenProps<'Chat'>) {
         </View>
 
         <Pressable
-          onPress={() => navigation.navigate('Library')}
-          accessibilityRole="button"
-          accessibilityLabel="Voir les modèles"
-          style={({ pressed }) => [styles.payButton, pressed && styles.payPressed]}
-        >
-          <Text style={styles.payLabel}>Modèles</Text>
-        </Pressable>
-
-        <Pressable
           onPress={() => navigation.navigate('Payment')}
           accessibilityRole="button"
           accessibilityLabel="Voir le paiement"
@@ -205,17 +196,9 @@ export function ChatScreen({ navigation, route }: AppScreenProps<'Chat'>) {
       ) : null}
 
       <View style={{ paddingBottom: insets.bottom + Spacing.md }}>
-        {/*
-          `key` sur le brouillon : revenir de la bibliothèque ne remonte pas cet
-          écran (il est déjà dans la pile), donc sans cela le message préparé
-          n'apparaîtrait jamais.
-        */}
-        <Composer
-          key={route.params.draft ?? 'composer'}
-          onSend={send}
-          disabled={loading}
-          initialText={route.params.draft}
-        />
+        {/* Le brouillon pré-rempli venait de la bibliothèque, qui n'existe
+            plus : le composeur part toujours vide. */}
+        <Composer onSend={send} disabled={loading} />
       </View>
     </KeyboardAvoidingView>
   );

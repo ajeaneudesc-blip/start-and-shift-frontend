@@ -14,25 +14,8 @@ export const PACK_IDENTITE = {
   montantFCFA: 18000,
 };
 
-export const OFFRE_PRO = {
-  montantFCFA: 55000,
-  duree: '3 mois, assistant inclus',
-};
 
-export const OFFRE_GRATUITE = {
-  montantFCFA: 0,
-  duree: 'Diagnostic et stratégie',
-};
 
-/** Comparatif : `gratuit` indique si la ligne est incluse dans l'offre gratuite. */
-export const COMPARATIF: readonly { label: string; gratuit: boolean }[] = [
-  { label: 'Diagnostic en 8 questions', gratuit: true },
-  { label: 'Réponses en vocal', gratuit: true },
-  { label: 'Stratégie écrite', gratuit: true },
-  { label: 'Assistant dédié', gratuit: false },
-  { label: 'Visuels livrés', gratuit: false },
-  { label: 'Modifications illimitées', gratuit: false },
-] as const;
 
 /**
  * Moyens de paiement acceptés. Les trois sont **manuels** : aucun n'est un

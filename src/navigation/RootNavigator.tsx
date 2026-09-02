@@ -7,8 +7,6 @@ import { StrategyScreen } from '../screens/StrategyScreen';
 import { RelationScreen } from '../screens/RelationScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { PaymentScreen } from '../screens/PaymentScreen';
-import { OffersScreen } from '../screens/OffersScreen';
-import { LibraryScreen } from '../screens/LibraryScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
 import { useAuthStore } from '../store/authStore';
 import { Colors } from '../theme/tokens';
@@ -57,8 +55,6 @@ export function RootNavigator() {
           <AppStack.Screen name="Relation" component={RelationScreen} />
           <AppStack.Screen name="Chat" component={ChatScreen} />
           <AppStack.Screen name="Payment" component={PaymentScreen} />
-          <AppStack.Screen name="Offers" component={OffersScreen} />
-          <AppStack.Screen name="Library" component={LibraryScreen} />
           <AppStack.Screen name="Tracking" component={TrackingScreen} />
         </AppStack.Navigator>
       ) : (
