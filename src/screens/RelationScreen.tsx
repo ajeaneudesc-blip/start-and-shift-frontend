@@ -13,6 +13,7 @@ import { Conversation, openConversation } from '../api/conversations';
 import { apiErrorCode, apiErrorMessage } from '../api/client';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 export function RelationScreen({ navigation }: AppScreenProps<'Relation'>) {
   const insets = useSafeAreaInsets();
@@ -86,7 +87,11 @@ export function RelationScreen({ navigation }: AppScreenProps<'Relation'>) {
   const presence: Presence = offline ? 'offline' : isBeforeOpening(now) ? 'closed' : 'online';
 
   return (
-    <ScrollView
+    // Le halo est hors du ScrollView : dedans, il défilerait avec le
+    // contenu et se dimensionnerait sur la hauteur totale de la page.
+    <View style={styles.flex}>
+      <Halo />
+      <ScrollView
       style={styles.flex}
       contentContainerStyle={[
         styles.scroll,
@@ -135,7 +140,8 @@ export function RelationScreen({ navigation }: AppScreenProps<'Relation'>) {
           Vos réponses sont enregistrées. La discussion s'ouvrira au retour du réseau.
         </Text>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

@@ -12,6 +12,7 @@ import { useDiagStore } from '../store/diagStore';
 import { ANSWER_COUNT } from '../constants/questions';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 /**
  * Le calcul serveur est quasi instantané. En dessous de ce seuil, l'anneau ne
@@ -127,7 +128,11 @@ export function StrategyScreen({ navigation }: AppScreenProps<'Strategy'>) {
   if (!strategy) return null;
 
   return (
-    <ScrollView
+    // Le halo est hors du ScrollView : dedans, il défilerait avec le
+    // contenu et se dimensionnerait sur la hauteur totale de la page.
+    <View style={styles.flex}>
+      <Halo />
+      <ScrollView
       style={styles.flex}
       contentContainerStyle={[
         styles.scroll,
@@ -182,7 +187,8 @@ export function StrategyScreen({ navigation }: AppScreenProps<'Strategy'>) {
         <Button label="Passer à la réalisation" onPress={() => navigation.navigate('Relation')} />
         <Button label="Modifier mes réponses" variant="secondary" onPress={editAnswers} />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

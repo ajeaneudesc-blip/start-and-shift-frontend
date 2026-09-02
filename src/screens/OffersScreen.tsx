@@ -10,12 +10,17 @@ import {
 } from '../constants/offers';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 export function OffersScreen({ navigation }: AppScreenProps<'Offers'>) {
   const insets = useSafeAreaInsets();
 
   return (
-    <ScrollView
+    // Le halo est hors du ScrollView : dedans, il défilerait avec le
+    // contenu et se dimensionnerait sur la hauteur totale de la page.
+    <View style={styles.flex}>
+      <Halo />
+      <ScrollView
       style={styles.flex}
       contentContainerStyle={[
         styles.scroll,
@@ -91,7 +96,8 @@ export function OffersScreen({ navigation }: AppScreenProps<'Offers'>) {
           onPress={() => navigation.goBack()}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

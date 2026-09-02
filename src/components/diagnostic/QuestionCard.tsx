@@ -1,44 +1,53 @@
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Colors, Spacing } from '../../theme/tokens';
+import { StyleSheet, Text, ViewStyle } from 'react-native';
+import { FadeIn } from '../effects/FadeIn';
+import { Colors, Fonts, Motion } from '../../theme/tokens';
 
 interface QuestionCardProps {
-  section: string;
   title: string;
   hint: string;
+  /** Change à chaque question : relance l'animation d'entrée. */
+  step: number;
   style?: ViewStyle;
 }
 
-/** En-tête d'une question : section, intitulé, précision. */
-export function QuestionCard({ section, title, hint, style }: QuestionCardProps) {
+/**
+ * Intitulé d'une question et sa précision.
+ *
+ * La section n'y figure plus : le prototype ne l'affiche qu'une fois, dans
+ * l'en-tête (« VOTRE ACTIVITÉ · 1 / 8 »). La répéter au-dessus du titre la
+ * faisait lire deux fois à trois lignes d'intervalle.
+ *
+ * `key={step}` sur les FadeIn : sans lui, React réutilise les mêmes nœuds
+ * d'une question à l'autre et l'animation ne rejoue pas.
+ */
+export function QuestionCard({ title, hint, step, style }: QuestionCardProps) {
   return (
-    <View style={style}>
-      <Text style={styles.section}>{section}</Text>
+    <FadeIn key={step} duration={460} offset={0} style={style}>
       <Text style={styles.title} accessibilityRole="header">
         {title}
       </Text>
-      <Text style={styles.hint}>{hint}</Text>
-    </View>
+      {/* 70 ms après le titre, comme le prototype décale les deux ssSlide. */}
+      <FadeIn key={`hint-${step}`} duration={460} delay={Motion.stagger + 10} offset={0}>
+        <Text style={styles.hint}>{hint}</Text>
+      </FadeIn>
+    </FadeIn>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: '500',
-    color: Colors.blueMid,
-    marginBottom: Spacing.md,
-  },
   title: {
-    fontSize: 22,
-    lineHeight: 29,
-    fontWeight: '600',
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.4,
+    fontFamily: Fonts.bold,
     color: Colors.textPrimary,
+    marginBottom: 10,
   },
   hint: {
-    marginTop: Spacing.sm,
-    fontSize: 14,
-    lineHeight: 21,
-    color: Colors.textMuted,
+    marginBottom: 22,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255,255,255,0.6)',
   },
 });

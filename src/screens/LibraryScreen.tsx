@@ -17,6 +17,7 @@ import { openConversation } from '../api/conversations';
 import { apiErrorMessage } from '../api/client';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 /**
  * Libellé du filtre « pas de filtre ». Volontairement distinct de la catégorie
@@ -107,6 +108,7 @@ export function LibraryScreen({ navigation }: AppScreenProps<'Library'>) {
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top + Spacing.sm }]}>
+      <Halo />
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Pressable

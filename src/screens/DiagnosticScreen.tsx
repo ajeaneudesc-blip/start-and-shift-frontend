@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
 import { Input } from '../components/ui/Input';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { Halo } from '../components/effects/Halo';
 import { SpeakButton } from '../components/ui/SpeakButton';
 import { OptionsGrid } from '../components/diagnostic/OptionsGrid';
 import { QuestionCard } from '../components/diagnostic/QuestionCard';
@@ -116,7 +117,7 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
 
   const prompt = (
     <View style={isWide ? styles.leftPanel : undefined}>
-      <QuestionCard section={question.sec} title={question.t} hint={question.h} />
+      <QuestionCard title={question.t} hint={question.h} step={step} />
 
       {/*
         Écouter la question résout la moitié « lecture » de la difficulté.
@@ -158,6 +159,7 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
           answer={answer}
           multi={question.type === 'multi'}
           max={question.max}
+          step={step}
           onSelect={(option) =>
             question.type === 'multi'
               ? toggleMulti(step, option, question.max)
@@ -173,6 +175,10 @@ export function DiagnosticScreen({ navigation }: AppScreenProps<'Diagnostic'>) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Même halo bleu que l'écran d'inscription, en retrait : il éclaire
+          l'en-tête sans concurrencer l'énoncé de la question. */}
+      <Halo />
+
       <View style={{ paddingTop: insets.top + Spacing.sm }}>{header}</View>
 
       <ScrollView

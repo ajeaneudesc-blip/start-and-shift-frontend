@@ -9,6 +9,7 @@ import { openConversation } from '../api/conversations';
 import { apiErrorMessage } from '../api/client';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 export function TrackingScreen({ navigation }: AppScreenProps<'Tracking'>) {
   const insets = useSafeAreaInsets();
@@ -56,6 +57,7 @@ export function TrackingScreen({ navigation }: AppScreenProps<'Tracking'>) {
 
   return (
     <View style={[styles.flex, { paddingTop: insets.top + Spacing.sm }]}>
+      <Halo />
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}

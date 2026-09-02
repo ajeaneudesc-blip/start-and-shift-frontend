@@ -27,6 +27,7 @@ import {
 } from '../constants/offers';
 import { Colors, Radius, Spacing } from '../theme/tokens';
 import type { AppScreenProps } from '../navigation/types';
+import { Halo } from '../components/effects/Halo';
 
 /** Index dans `MOYENS_PAIEMENT` : les deux premiers sont les réseaux PayGate. */
 const NETWORK_BY_MOYEN: Record<number, PaygateNetwork> = { 0: 'TMONEY', 1: 'FLOOZ' };
@@ -215,7 +216,11 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
   const network = NETWORK_BY_MOYEN[moyen];
 
   return (
-    <ScrollView
+    // Le halo est hors du ScrollView : dedans, il défilerait avec le
+    // contenu et se dimensionnerait sur la hauteur totale de la page.
+    <View style={styles.flex}>
+      <Halo />
+      <ScrollView
       style={styles.flex}
       contentContainerStyle={[
         styles.scroll,
@@ -376,7 +381,8 @@ export function PaymentScreen({ navigation }: AppScreenProps<'Payment'>) {
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Colors, Radius, Spacing } from '../../theme/tokens';
+import { Colors, Fonts, Radius } from '../../theme/tokens';
 import { Icon } from './Icon';
 
 interface SelectableRowProps {
@@ -51,7 +51,7 @@ export function SelectableRow({
           selected ? styles.boxSelected : styles.boxIdle,
         ]}
       >
-        {selected ? <Icon name="check" size={14} /> : null}
+        {selected ? <Icon name="check" size={15} /> : null}
       </View>
 
       <View style={styles.textCol}>
@@ -65,10 +65,12 @@ export function SelectableRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md + 2,
-    padding: Spacing.lg,
-    minHeight: 56,
+    // Le prototype centre la pastille sur la ligne. En `flex-start` elle
+    // flottait au-dessus du texte dès qu'une option tenait sur deux lignes.
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
     borderRadius: Radius.lg,
     borderWidth: 1,
   },
@@ -80,7 +82,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     flexShrink: 0,
-    marginTop: 1,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -90,6 +91,6 @@ const styles = StyleSheet.create({
   boxIdle: { borderColor: Colors.checkboxIdle, backgroundColor: 'transparent' },
   boxSelected: { borderColor: Colors.blue, backgroundColor: Colors.blue },
   textCol: { flex: 1, gap: 3 },
-  label: { fontSize: 15, lineHeight: 22, color: Colors.textPrimary },
-  hint: { fontSize: 10, letterSpacing: 1.6, color: Colors.textLabel },
+  label: { fontSize: 15, lineHeight: 22, fontFamily: Fonts.medium, color: Colors.textPrimary },
+  hint: { fontSize: 10, letterSpacing: 1.6, fontFamily: Fonts.medium, color: Colors.textLabel },
 });

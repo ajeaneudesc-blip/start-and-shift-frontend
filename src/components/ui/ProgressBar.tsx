@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { Colors, Spacing } from '../../theme/tokens';
+import { Colors } from '../../theme/tokens';
 
 interface ProgressBarProps {
   /** Nombre de segments — 8 pour le diagnostic. */
@@ -10,7 +10,14 @@ interface ProgressBarProps {
   completed?: number;
 }
 
-/** Barre segmentée du prototype (lignes 198-202) : 8 traits de 3 px. */
+/**
+ * Barre segmentée du prototype : 8 traits de 3 px, espacés de 4.
+ *
+ * Le code de couleur n'est pas celui qu'on attend spontanément — c'est
+ * l'étape *en cours* qui est bleue, les étapes franchies sont blanches. Une
+ * version précédente avait l'inverse (franchies en bleu, courante en bleu
+ * clair), ce qui noyait le repère : on ne voyait plus où on en était.
+ */
 export function ProgressBar({ total, current, completed }: ProgressBarProps) {
   const filled = completed ?? current;
 
@@ -36,13 +43,15 @@ export function ProgressBar({ total, current, completed }: ProgressBarProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: Spacing.xs },
+  row: { flexDirection: 'row', gap: 4, alignItems: 'center' },
   segment: {
     height: 3,
     flex: 1,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  segmentDone: { backgroundColor: Colors.blue },
-  segmentCurrent: { backgroundColor: Colors.blueMid },
+  segmentDone: { backgroundColor: 'rgba(255,255,255,0.78)' },
+  // scaleY(1.6) du prototype : le trait courant est légèrement plus épais que
+  // les autres, ce qui le repère sans changer la hauteur de la rangée.
+  segmentCurrent: { backgroundColor: Colors.blue, transform: [{ scaleY: 1.6 }] },
 });
