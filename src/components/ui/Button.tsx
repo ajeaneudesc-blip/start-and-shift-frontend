@@ -1,5 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Colors, Radius, Spacing } from '../../theme/tokens';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Icon } from './Icon';
+import { Colors, Fonts, Gradients, Radius, Spacing } from '../../theme/tokens';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 
@@ -9,6 +11,8 @@ interface ButtonProps {
   variant?: ButtonVariant;
   disabled?: boolean;
   loading?: boolean;
+  /** Flèche à droite du libellé, comme sur les boutons d'avancement du prototype. */
+  arrow?: boolean;
   style?: ViewStyle;
   /** Lu par les lecteurs d'écran à la place du libellé quand il est ambigu. */
   accessibilityLabel?: string;
@@ -20,10 +24,12 @@ export function Button({
   variant = 'primary',
   disabled = false,
   loading = false,
+  arrow = false,
   style,
   accessibilityLabel,
 }: ButtonProps) {
   const inactive = disabled || loading;
+  const showGlow = variant === 'primary' && !inactive;
 
   return (
     <Pressable
@@ -37,14 +43,29 @@ export function Button({
       aria-busy={loading}
       style={({ pressed }) => [
         styles.base,
-        variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
+        variant === 'primary' && !showGlow && styles.primaryFlat,
         inactive && styles.inactive,
         pressed && !inactive && styles.pressed,
         style,
       ]}
     >
+      {/* Liseré lumineux du prototype : aplat #095CFF en padding-box, dégradé
+          blanc en border-box. Deux couches, faute de border-box en RN. */}
+      {showGlow && (
+        <>
+          <LinearGradient
+            colors={Gradients.edgeButton}
+            locations={Gradients.edgeButtonStops}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.85, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: Radius.md }]}
+          />
+          <View style={styles.primaryFill} />
+        </>
+      )}
+
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? Colors.textPrimary : Colors.blueMid} />
       ) : (
@@ -59,6 +80,13 @@ export function Button({
           >
             {label}
           </Text>
+          {arrow && !inactive && (
+            <Icon
+              name="arrow-right"
+              size={18}
+              color={variant === 'primary' ? Colors.textPrimary : Colors.blueMid}
+            />
+          )}
         </View>
       )}
     </Pressable>
@@ -73,12 +101,25 @@ const styles = StyleSheet.create({
     // toujours un écran précis ni une main assurée.
     minHeight: 52,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
+    // Sans découpe, les dégradés débordent des coins arrondis.
+    overflow: 'hidden',
   },
-  content: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  primary: { backgroundColor: Colors.blue },
+  content: { flexDirection: 'row', alignItems: 'center', gap: Spacing.smd },
+  // Fond du bouton primaire, rentré d'un pixel : le liseré est ce qui dépasse.
+  primaryFill: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
+    borderRadius: Radius.md - 1,
+    backgroundColor: Colors.blue,
+  },
+  // Repli sans liseré (bouton primaire désactivé) : l'aplat suffit.
+  primaryFlat: { backgroundColor: Colors.blue },
   secondary: {
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
@@ -89,10 +130,10 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Fonts.bold,
     color: Colors.textPrimary,
     textAlign: 'center',
   },
-  labelGhost: { color: Colors.textMuted, fontWeight: '400' },
+  labelGhost: { color: Colors.textMuted, fontFamily: Fonts.regular },
   labelInactive: { color: Colors.textFaint },
 });

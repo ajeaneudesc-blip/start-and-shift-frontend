@@ -4,26 +4,21 @@ import { TOKEN_KEY, setAuthToken, setUnauthorizedHandler } from '../api/client';
 import { getMe, User } from '../api/auth';
 
 const USER_KEY = 'user';
-const CONSENT_KEY = 'consent';
 
 /**
- * Les trois cases de l'écran de consentement. Seule la première est
- * obligatoire ; les deux autres sont des préférences.
- *
- * Le backend n'expose aucune route pour les stocker : elles restent donc sur
- * l'appareil. À reprendre quand le juriste aura tranché sur ce qui doit être
- * conservé côté serveur et sous quelle forme (preuve horodatée, retrait…).
+ * L'écran de consentement a été supprimé : la mention figure désormais sous le
+ * bouton de création de compte, et l'accepter revient à créer le compte. Il n'y
+ * a donc plus d'état à conserver ici — la clé `consent` du stockage local des
+ * versions précédentes est purgée à la restauration.
  */
-export type Consent = [boolean, boolean, boolean];
+const LEGACY_CONSENT_KEY = 'consent';
 
 interface AuthStore {
   token: string | null;
   user: User | null;
-  consent: Consent | null;
   /** `false` tant que la restauration depuis le disque n'est pas terminée. */
   hydrated: boolean;
   setAuth: (token: string, user: User) => Promise<void>;
-  setConsent: (consent: Consent) => Promise<void>;
   logout: () => Promise<void>;
   restore: () => Promise<void>;
 }
@@ -31,7 +26,6 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set) => ({
   token: null,
   user: null,
-  consent: null,
   hydrated: false,
 
   setAuth: async (token, user) => {
@@ -43,25 +37,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
     ]);
   },
 
-  setConsent: async (consent) => {
-    set({ consent });
-    await AsyncStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
-  },
-
   logout: async () => {
     setAuthToken(null);
-    set({ token: null, user: null, consent: null });
-    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY, CONSENT_KEY]);
+    set({ token: null, user: null });
+    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY, LEGACY_CONSENT_KEY]);
   },
 
   restore: async () => {
     try {
-      const stored = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY, CONSENT_KEY]);
+      const stored = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
       const token = stored[0]?.[1] ?? null;
       const rawUser = stored[1]?.[1] ?? null;
-      const rawConsent = stored[2]?.[1] ?? null;
 
-      set({ consent: parse<Consent>(rawConsent) });
+      // Reliquat des versions qui avaient un écran de consentement. Sans cette
+      // purge, la clé resterait indéfiniment sur les appareils déjà installés.
+      void AsyncStorage.removeItem(LEGACY_CONSENT_KEY);
 
       if (!token) return;
 
@@ -94,9 +84,6 @@ function parse<T>(raw: string | null): T | null {
     return null;
   }
 }
-
-/** L'utilisateur a-t-il accepté la case obligatoire ? */
-export const hasRequiredConsent = (consent: Consent | null): boolean => consent?.[0] === true;
 
 // Un 401 signifie que la session a été révoquée côté serveur : on vide l'état
 // local, ce qui renvoie automatiquement l'utilisateur vers l'inscription.

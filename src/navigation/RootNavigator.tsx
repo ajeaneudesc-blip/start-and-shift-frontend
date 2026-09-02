@@ -2,7 +2,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { DarkTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SignupScreen } from '../screens/auth/SignupScreen';
-import { ConsentScreen } from '../screens/auth/ConsentScreen';
 import { DiagnosticScreen } from '../screens/DiagnosticScreen';
 import { StrategyScreen } from '../screens/StrategyScreen';
 import { RelationScreen } from '../screens/RelationScreen';
@@ -11,7 +10,7 @@ import { PaymentScreen } from '../screens/PaymentScreen';
 import { OffersScreen } from '../screens/OffersScreen';
 import { LibraryScreen } from '../screens/LibraryScreen';
 import { TrackingScreen } from '../screens/TrackingScreen';
-import { hasRequiredConsent, useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 import { Colors } from '../theme/tokens';
 import type { AppStackParamList, AuthStackParamList } from './types';
 
@@ -33,7 +32,6 @@ const theme: Theme = {
 export function RootNavigator() {
   const hydrated = useAuthStore((s) => s.hydrated);
   const token = useAuthStore((s) => s.token);
-  const consent = useAuthStore((s) => s.consent);
 
   // Tant que le token n'est pas relu du disque, afficher l'inscription ferait
   // clignoter l'écran chez un utilisateur déjà connecté.
@@ -45,10 +43,10 @@ export function RootNavigator() {
     );
   }
 
-  // Le consentement fait partie de la porte d'entrée : un compte créé mais
-  // sans case cochée reste dans l'AuthStack. C'est ce qui permet à
-  // SignupScreen d'enchaîner sur ConsentScreen alors que le token existe déjà.
-  const signedIn = Boolean(token) && hasRequiredConsent(consent);
+  // Le token seul ouvre la porte : l'écran de consentement a été supprimé, la
+  // mention est passée sous le bouton de création de compte. Créer le compte
+  // mène donc directement au Diagnostic.
+  const signedIn = Boolean(token);
 
   return (
     <NavigationContainer theme={theme}>
@@ -66,7 +64,6 @@ export function RootNavigator() {
       ) : (
         <AuthStack.Navigator screenOptions={{ headerShown: false }}>
           <AuthStack.Screen name="Signup" component={SignupScreen} />
-          <AuthStack.Screen name="Consent" component={ConsentScreen} />
         </AuthStack.Navigator>
       )}
     </NavigationContainer>

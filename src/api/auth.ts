@@ -31,18 +31,26 @@ export interface RequestOtpInput {
   pseudo?: string;
 }
 
-export interface RequestOtpResponse {
-  sessionToken: string;
-  expiresIn: number;
-}
+/**
+ * Deux issues possibles, distinguées par `verified` :
+ *
+ * - `true` — la session est ouverte séance tenante. C'est le parcours client :
+ *   le numéro n'est qu'une information de contact, aucun code n'est envoyé.
+ * - `false` — un code a été envoyé, il faut passer par `verifyOtp`. Réservé
+ *   aux rôles équipe, dont l'accès ouvre les conversations et les fiches
+ *   clients : un numéro connu n'y suffit pas.
+ */
+export type RequestSessionResponse =
+  | ({ verified: true } & SessionResponse)
+  | { verified: false; sessionToken: string; expiresIn: number };
 
 /**
- * `POST /api/auth/session/request` — envoie un code par SMS. Si le numéro est
- * inconnu, `firstName`/`pseudo` deviennent obligatoires ; le compte n'est créé
- * qu'à `verifyOtp`, jamais ici.
+ * `POST /api/auth/session/request`. Si le numéro est inconnu,
+ * `firstName`/`pseudo` deviennent obligatoires — le compte est alors créé ici
+ * même pour un client, puisqu'il n'y a plus d'étape de vérification.
  */
-export async function requestOtp(input: RequestOtpInput): Promise<RequestOtpResponse> {
-  const { data } = await client.post<RequestOtpResponse>('/api/auth/session/request', input);
+export async function requestSession(input: RequestOtpInput): Promise<RequestSessionResponse> {
+  const { data } = await client.post<RequestSessionResponse>('/api/auth/session/request', input);
   return data;
 }
 

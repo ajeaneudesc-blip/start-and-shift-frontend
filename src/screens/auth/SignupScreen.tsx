@@ -10,6 +10,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { FadeIn } from '../../components/effects/FadeIn';
+import { GlowBorder } from '../../components/effects/GlowBorder';
+import { Halo } from '../../components/effects/Halo';
 import { apiErrorMessage } from '../../api/client';
 import {
   digitsOnly,
@@ -17,20 +20,30 @@ import {
   isValidLocalPhone,
   PHONE_LOCAL_LENGTH,
   PHONE_PREFIX,
-  requestOtp,
+  requestSession,
   toE164,
   verifyOtp,
 } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
-import { Colors, Radius, Spacing } from '../../theme/tokens';
+import { Colors, Fonts, Gradients, Motion, Radius, Spacing } from '../../theme/tokens';
 import type { AuthScreenProps } from '../../navigation/types';
 
 const OTP_LENGTH = 6;
+
+/** Remplissage translucide du panneau, tel que le prototype le pose sur le halo. */
+const PANEL_FILL = [
+  'rgba(26,26,30,0.46)',
+  'rgba(14,14,17,0.34)',
+  'rgba(10,10,12,0.30)',
+] as const;
+const PANEL_STOPS = [0, 0.55, 1] as const;
 
 export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
 
+  // L'étape « otp » ne concerne plus que les comptes équipe : le serveur ne
+  // renvoie `verified: false` que pour eux. Un client ne la voit jamais.
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [firstName, setFirstName] = useState('');
   const [pseudo, setPseudo] = useState('');
@@ -63,12 +76,18 @@ export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
 
     setLoading(true);
     try {
-      const { sessionToken: token } = await requestOtp({
+      const result = await requestSession({
         phone: toE164(phone),
         firstName: firstName.trim(),
         pseudo: pseudo.trim(),
       });
-      setSessionToken(token);
+      if (result.verified) {
+        // Parcours client : plus d'écran de consentement, la navigation bascule
+        // seule sur le Diagnostic dès que le token est posé (RootNavigator).
+        await setAuth(result.token, result.user);
+        return;
+      }
+      setSessionToken(result.sessionToken);
       setCode('');
       setStep('otp');
     } catch (e) {
@@ -89,7 +108,6 @@ export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
     try {
       const { token, user } = await verifyOtp(sessionToken, code);
       await setAuth(token, user);
-      navigation.navigate('Consent');
     } catch (e) {
       setError(apiErrorMessage(e));
     } finally {
@@ -102,125 +120,119 @@ export function SignupScreen({ navigation }: AuthScreenProps<'Signup'>) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Halo bleu du prototype : centré au-dessus du bord haut, il éclaire le
+          tiers supérieur de l'écran. Posé hors du ScrollView pour rester fixe
+          quand le clavier pousse le contenu. */}
+      <Halo />
+
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xxl },
+          { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xxxl },
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.card}>
-          <Text style={styles.brand}>START AND SHIFT</Text>
+        <FadeIn duration={Motion.enterSlow}>
+          <GlowBorder
+            radius={Radius.xl}
+            fill={PANEL_FILL}
+            fillStops={PANEL_STOPS}
+            edge={Gradients.edgeStrong}
+            style={styles.card}
+            contentStyle={styles.cardInner}
+          >
+            {step === 'form' ? (
+              <>
+                <Text style={styles.title}>Inscription</Text>
 
-          {step === 'form' ? (
-            <>
-              <Text style={styles.title}>Inscription</Text>
-              <Text style={styles.subtitle}>
-                Pas de mot de passe. Un code par SMS confirme votre numéro.
-              </Text>
+                <View style={styles.fields}>
+                  <Input
+                    label="Prénom"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="Amina"
+                    autoCapitalize="words"
+                    error={fieldError === 'firstName' ? ' ' : null}
+                  />
+                  <Input
+                    label="Pseudo"
+                    prefix="@"
+                    value={pseudo}
+                    onChangeText={(v) => setPseudo(v.replace(/^@+/, ''))}
+                    placeholder="amina.k"
+                    autoCapitalize="none"
+                    error={fieldError === 'pseudo' ? ' ' : null}
+                  />
+                  <Input
+                    label="Numéro"
+                    prefix={PHONE_PREFIX}
+                    value={formatLocalPhone(phone)}
+                    onChangeText={(v) => setPhone(digitsOnly(v).slice(0, PHONE_LOCAL_LENGTH))}
+                    placeholder="90 00 00 00"
+                    keyboardType="number-pad"
+                    error={fieldError === 'phone' ? ' ' : null}
+                  />
+                </View>
 
-              <View style={styles.fields}>
-                <Input
-                  label="Prénom"
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="Amina"
-                  autoCapitalize="words"
-                  error={fieldError === 'firstName' ? ' ' : null}
-                />
-                <Input
-                  label="Pseudo"
-                  prefix="@"
-                  value={pseudo}
-                  onChangeText={(v) => setPseudo(v.replace(/^@+/, ''))}
-                  placeholder="amina.k"
-                  autoCapitalize="none"
-                  error={fieldError === 'pseudo' ? ' ' : null}
-                />
-                <Input
-                  label="Numéro"
-                  prefix={PHONE_PREFIX}
-                  value={formatLocalPhone(phone)}
-                  onChangeText={(v) => setPhone(digitsOnly(v).slice(0, PHONE_LOCAL_LENGTH))}
-                  placeholder="90 00 00 00"
-                  keyboardType="number-pad"
-                  error={fieldError === 'phone' ? ' ' : null}
-                />
-              </View>
+                {error ? (
+                  <Text style={styles.error} accessibilityLiveRegion="assertive">
+                    {error}
+                  </Text>
+                ) : null}
 
-              {error ? (
-                <Text style={styles.error} accessibilityLiveRegion="assertive">
-                  {error}
+                {/* Le prototype réserve ici une ligne de 11 px avant le bouton.
+                    C'est la place du consentement, qui n'a plus d'écran à lui :
+                    la mention reste affichée, donc opposable, sans ajouter une
+                    étape à un parcours qu'on veut tenir en un seul écran. */}
+                <Text style={styles.consent}>
+                  En créant votre compte, vous acceptez que START AND SHIFT utilise vos réponses
+                  pour préparer votre stratégie de marque.
                 </Text>
-              ) : null}
 
-              <Button
-                label="Recevoir mon code"
-                onPress={submitPhone}
-                loading={loading}
-                style={styles.cta}
-              />
-
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>OU</Text>
-                <View style={styles.divider} />
-              </View>
-
-              {/*
-                Gmail est présent dans la maquette mais aucune route OAuth n'existe
-                côté backend (l'authentification se fait par numéro seul). Le bouton
-                est donc désactivé plutôt que trompeur.
-              */}
-              <Button
-                label="Continuer avec Gmail"
-                variant="secondary"
-                onPress={() => {}}
-                disabled
-                accessibilityLabel="Continuer avec Gmail — pas encore disponible"
-              />
-              <Text style={styles.soon}>Bientôt disponible</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.title}>Votre code</Text>
-              <Text style={styles.subtitle}>
-                Envoyé par SMS au {PHONE_PREFIX} {formatLocalPhone(phone)}.
-              </Text>
-
-              <View style={styles.fields}>
-                <Input
-                  label="Code reçu"
-                  value={code}
-                  onChangeText={(v) => setCode(digitsOnly(v).slice(0, OTP_LENGTH))}
-                  placeholder="000000"
-                  keyboardType="number-pad"
-                  maxLength={OTP_LENGTH}
-                  autoFocus
+                <Button
+                  label="Créer mon compte"
+                  onPress={submitPhone}
+                  loading={loading}
+                  arrow
                 />
-              </View>
-
-              {error ? (
-                <Text style={styles.error} accessibilityLiveRegion="assertive">
-                  {error}
+              </>
+            ) : (
+              <>
+                <Text style={styles.title}>Votre code</Text>
+                <Text style={styles.subtitle}>
+                  Envoyé par SMS au {PHONE_PREFIX} {formatLocalPhone(phone)}.
                 </Text>
-              ) : null}
 
-              <Button
-                label="Confirmer"
-                onPress={submitCode}
-                loading={loading}
-                style={styles.cta}
-              />
-              <Button
-                label="Modifier le numéro"
-                variant="secondary"
-                onPress={() => setStep('form')}
-                disabled={loading}
-              />
-            </>
-          )}
-        </View>
+                <View style={styles.fields}>
+                  <Input
+                    label="Code reçu"
+                    value={code}
+                    onChangeText={(v) => setCode(digitsOnly(v).slice(0, OTP_LENGTH))}
+                    placeholder="000000"
+                    keyboardType="number-pad"
+                    maxLength={OTP_LENGTH}
+                    autoFocus
+                  />
+                </View>
+
+                {error ? (
+                  <Text style={styles.error} accessibilityLiveRegion="assertive">
+                    {error}
+                  </Text>
+                ) : null}
+
+                <Button label="Confirmer" onPress={submitCode} loading={loading} arrow />
+                <Button
+                  label="Modifier le numéro"
+                  variant="secondary"
+                  onPress={() => setStep('form')}
+                  disabled={loading}
+                  style={styles.secondaryCta}
+                />
+              </>
+            )}
+          </GlowBorder>
+        </FadeIn>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -231,59 +243,43 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: Spacing.xl,
+    // 26 px : la marge du cadre dans le prototype.
+    paddingHorizontal: Spacing.xxxl,
   },
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceAlt,
-    padding: Spacing.xl,
-  },
-  brand: {
-    alignSelf: 'center',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 2.2,
-    color: Colors.textPrimary,
-  },
+  card: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  cardInner: { padding: 16 },
   title: {
-    marginTop: Spacing.lg,
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '700',
+    marginBottom: 13,
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.4,
+    fontFamily: Fonts.bold,
     color: Colors.textPrimary,
   },
   subtitle: {
-    marginTop: Spacing.sm,
+    marginTop: -6,
     marginBottom: Spacing.xl,
     fontSize: 15,
     lineHeight: 22,
+    fontFamily: Fonts.regular,
     color: Colors.textMuted,
   },
-  fields: { gap: Spacing.md },
+  // 9 px entre deux champs, valeur du prototype.
+  fields: { gap: 9 },
   error: {
     marginTop: Spacing.md,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: Fonts.regular,
     color: Colors.danger,
   },
-  cta: { marginTop: Spacing.xl },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    marginVertical: Spacing.lg,
-  },
-  divider: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerLabel: { fontSize: 11, letterSpacing: 1.6, color: 'rgba(255,255,255,0.55)' },
-  soon: {
-    marginTop: Spacing.sm,
-    alignSelf: 'center',
-    fontSize: 12,
+  consent: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: Fonts.regular,
     color: Colors.textFaint,
   },
+  secondaryCta: { marginTop: Spacing.smd },
 });

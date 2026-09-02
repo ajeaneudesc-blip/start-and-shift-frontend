@@ -3,7 +3,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 /** Écrans visibles tant que le compte n'est pas créé ET le consentement donné. */
 export type AuthStackParamList = {
   Signup: undefined;
-  Consent: undefined;
 };
 
 /** Écrans visibles une fois connecté. Complété aux étapes 7 à 11. */
